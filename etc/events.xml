@@ -69,4 +69,7 @@
     <event name="customer_login">
         <observer name="mp_wh_customer_login" instance="Mageplaza\Webhook\Observer\CustomerLogin"/>
     </event>
+    <event name="order_cancel_after">
+        <observer name="mp_wh_cancel_order" instance="Mageplaza\Webhook\Observer\CancelOrder"/>
+    </event>
 </config>

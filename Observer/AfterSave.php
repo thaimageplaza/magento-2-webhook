@@ -110,6 +110,7 @@ abstract class AfterSave implements ObserverInterface
             ->setOrder('priority', 'ASC');
         $isSendMail     = $this->helper->getConfigGeneral('alert_enabled');
         $sendTo         = explode(',', $this->helper->getConfigGeneral('send_to'));
+        /** @var  $hook */
         foreach ($hookCollection as $hook) {
             $history = $this->historyFactory->create();
             $data    = [

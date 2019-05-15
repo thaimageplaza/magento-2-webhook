@@ -21,10 +21,13 @@
 
 namespace Mageplaza\Webhook\Helper;
 
+use Exception;
 use Liquid\Template;
 use Magento\Backend\Model\UrlInterface;
 use Magento\Framework\App\Area;
 use Magento\Framework\App\Helper\Context;
+use Magento\Framework\Exception\MailException;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\HTTP\Adapter\CurlFactory;
 use Magento\Framework\Mail\Template\TransportBuilder;
 use Magento\Framework\ObjectManagerInterface;
@@ -33,7 +36,9 @@ use Mageplaza\Core\Helper\AbstractData as CoreHelper;
 use Mageplaza\Webhook\Block\Adminhtml\LiquidFilters;
 use Mageplaza\Webhook\Model\Config\Source\Authentication;
 use Mageplaza\Webhook\Model\HistoryFactory;
+use Mageplaza\Webhook\Model\Hook;
 use Mageplaza\Webhook\Model\HookFactory;
+use Zend_Http_Response;
 
 /**
  * Class Data
@@ -122,7 +127,7 @@ class Data extends CoreHelper
         $password       = $hook->getPassword();
         if ($authentication === Authentication::BASIC) {
             $authentication = $this->getBasicAuthHeader($username, $password);
-        } else if ($authentication === Authentication::DIGEST) {
+        } elseif ($authentication === Authentication::DIGEST) {
             $authentication = $this->getDigestAuthHeader(
                 $url,
                 $method,
@@ -137,6 +142,9 @@ class Data extends CoreHelper
                 $hook->getOpaque());
         }
         $body        = $log ? $log->getBody() : $this->generateLiquidTemplate($item, $hook->getBody());
+        echo "<pre>";
+        var_dump($body);
+        echo "</pre>";die;
         $headers     = $hook->getHeaders();
         $contentType = $hook->getContentType();
 
@@ -160,9 +168,8 @@ class Data extends CoreHelper
             $content = $template->render([
                 'item' => $item,
             ]);
-
             return $content;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->_logger->critical($e->getMessage());
         }
 
@@ -211,7 +218,7 @@ class Data extends CoreHelper
             $resultCurl         = $curl->read();
             $result['response'] = $resultCurl;
             if (!empty($resultCurl)) {
-                $result['status'] = \Zend_Http_Response::extractCode($resultCurl);
+                $result['status'] = Zend_Http_Response::extractCode($resultCurl);
                 if (isset($result['status']) && in_array($result['status'], [200, 201])) {
                     $result['success'] = true;
                 } else {
@@ -220,7 +227,7 @@ class Data extends CoreHelper
             } else {
                 $result['message'] = __('Cannot connect to server. Please try again later.');
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $result['message'] = $e->getMessage();
         }
         $curl->close();
@@ -268,7 +275,7 @@ class Data extends CoreHelper
      * @param $item
      * @param $hookType
      *
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws NoSuchEntityException
      */
     public function sendObserver($item, $hookType)
     {
@@ -283,6 +290,7 @@ class Data extends CoreHelper
         $isSendMail = $this->getConfigGeneral('alert_enabled');
         $sendTo     = explode(',', $this->getConfigGeneral('send_to'));
 
+        /** @var Hook $hook */
         foreach ($hookCollection as $hook) {
             try {
                 $history = $this->historyFactory->create();
@@ -299,7 +307,7 @@ class Data extends CoreHelper
                 try {
                     $result = $this->sendHttpRequestFromHook($hook, $item);
                     $history->setResponse(isset($result['response']) ? $result['response'] : '');
-                } catch (\Exception $e) {
+                } catch (Exception $e) {
                     $result = [
                         'success' => false,
                         'message' => $e->getMessage()
@@ -318,7 +326,7 @@ class Data extends CoreHelper
                     }
                 }
                 $history->save();
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 if ($isSendMail) {
                     $this->sendMail($sendTo,
                         __('Something went wrong while sending %1 hook', $hook->getName()),
@@ -356,7 +364,7 @@ class Data extends CoreHelper
             $transport->sendMessage();
 
             return true;
-        } catch (\Magento\Framework\Exception\MailException $e) {
+        } catch (MailException $e) {
             $this->_logger->critical($e->getLogMessage());
         }
 
@@ -365,7 +373,7 @@ class Data extends CoreHelper
 
     /**
      * @return int
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws NoSuchEntityException
      */
     public function getStoreId()
     {
