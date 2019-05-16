@@ -107,8 +107,13 @@ class Body extends Element implements RendererInterface
      */
     protected $quoteResource;
 
+    /**
+     * @var ItemResource
+     */
     protected $itemResource;
-
+    /**
+     * @var AddressResource
+     */
     protected $addressResource;
 
     /**
@@ -265,7 +270,7 @@ class Body extends Element implements RendererInterface
 
                 $attrCollection = [
                     'item'                 => $attrCollectionOrder,
-                    'item.product'           => $attrCollectionItems,
+                    'item.product'         => $attrCollectionItems,
                     'item.shippingAddress' => $attrCollectionAddress,
                     'item.billingAddress'  => $attrCollectionAddress
                 ];
@@ -274,7 +279,7 @@ class Body extends Element implements RendererInterface
         }
 
         if (!is_array($attrCollection)) {
-            $attrCollection = ['item'=>$attrCollection];
+            $attrCollection = ['item' => $attrCollection];
         }
 
         return $attrCollection;
