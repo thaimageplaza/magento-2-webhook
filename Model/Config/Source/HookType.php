@@ -30,7 +30,8 @@ use Magento\Framework\Option\ArrayInterface;
 class HookType implements ArrayInterface
 {
     const NEW_ORDER         = 'new_order';
-    const CANCEL_ORDER         = 'cancel_order';
+    const UPDATE_ORDER      = 'update_order';
+    const CANCEL_ORDER      = 'cancel_order';
     const NEW_ORDER_COMMENT = 'new_order_comment';
     const NEW_INVOICE       = 'new_invoice';
     const NEW_SHIPMENT      = 'new_shipment';
@@ -90,6 +91,7 @@ class HookType implements ArrayInterface
             self::UPDATE_CATEGORY   => 'Update Category',
             self::DELETE_CATEGORY   => 'Delete Category',
             self::CUSTOMER_LOGIN    => 'Customer Login',
+            self::UPDATE_ORDER      => 'Update Order',
             //            self::UPDATE_CART => 'Update cart',
             self::ABANDONED_CART    => 'Abandoned Cart',
         ];
