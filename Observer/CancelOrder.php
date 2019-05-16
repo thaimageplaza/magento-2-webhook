@@ -21,40 +21,24 @@
 
 namespace Mageplaza\Webhook\Observer;
 
-use Magento\Framework\Event\ObserverInterface;
-use Mageplaza\Webhook\Helper\Data;
+use Mageplaza\Webhook\Model\Config\Source\HookType;
 
 /**
- * Class BeforeSave
+ * Class CancelOrder
  * @package Mageplaza\Webhook\Observer
  */
-class CancelOrder implements ObserverInterface
+class CancelOrder extends AfterSave
 {
-    /**
-     * @var Data
-     */
-    protected $helper;
-
-    /**
-     * BeforeSave constructor.
-     * @param Data $helper
-     */
-    public function __construct(Data $helper)
-    {
-        $this->helper = $helper;
-    }
+    protected $hookType = HookType::CANCEL_ORDER;
 
     /**
      * @param \Magento\Framework\Event\Observer $observer
+     *
+     * @throws \Exception
      */
     public function execute(\Magento\Framework\Event\Observer $observer)
     {
-        if (!$this->helper->isEnabled()) {
-            return;
-        }
         $item = $observer->getOrder();
-        if ($item->isObjectNew()) {
-            $item->setMpNew(1);
-        }
+        $this->send($item, $this->hookType);
     }
 }

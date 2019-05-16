@@ -38,6 +38,8 @@ use Magento\Sales\Model\ResourceModel\Order\Status\History as OrderStatusResourc
 use Mageplaza\Webhook\Block\Adminhtml\LiquidFilters;
 use Mageplaza\Webhook\Model\Config\Source\HookType;
 use Mageplaza\Webhook\Model\HookFactory;
+use Magento\Sales\Model\ResourceModel\Order\Item as ItemResource;
+use Magento\Sales\Model\ResourceModel\Order\Address as AddressResource;
 
 /**
  * Class Body
@@ -105,13 +107,20 @@ class Body extends Element implements RendererInterface
      */
     protected $quoteResource;
 
+    protected $itemResource;
+
+    protected $addressResource;
+
     /**
      * Body constructor.
+     *
      * @param Context $context
      * @param OrderFactory $orderFactory
      * @param InvoiceResource $invoiceResource
      * @param ShipmentResource $shipmentResource
      * @param CreditmemoResource $creditmemoResource
+     * @param ItemResource $itemResource
+     * @param AddressResource $addressResource
      * @param OrderStatusResource $orderStatusResource
      * @param CustomerResource $customerResource
      * @param Quote $quoteResource
@@ -127,6 +136,8 @@ class Body extends Element implements RendererInterface
         InvoiceResource $invoiceResource,
         ShipmentResource $shipmentResource,
         CreditmemoResource $creditmemoResource,
+        ItemResource $itemResource,
+        AddressResource $addressResource,
         OrderStatusResource $orderStatusResource,
         CustomerResource $customerResource,
         Quote $quoteResource,
@@ -134,14 +145,16 @@ class Body extends Element implements RendererInterface
         CategoryFactory $categoryFactory,
         LiquidFilters $liquidFilters,
         HookFactory $hookFactory,
-        array $data = [])
-    {
+        array $data = []
+    ) {
         parent::__construct($context, $data);
 
         $this->liquidFilters       = $liquidFilters;
         $this->orderFactory        = $orderFactory;
         $this->invoiceResource     = $invoiceResource;
         $this->shipmentResource    = $shipmentResource;
+        $this->itemResource        = $itemResource;
+        $this->addressResource     = $addressResource;
         $this->creditmemoResource  = $creditmemoResource;
         $this->hookFactory         = $hookFactory;
         $this->orderStatusResource = $orderStatusResource;
@@ -238,10 +251,30 @@ class Body extends Element implements RendererInterface
                 $attrCollection = $this->getAttrCollectionFromDb($collectionData);
                 break;
             default:
-                $collectionData = $this->orderFactory->create()->getResource()->getConnection()
+                $collectionDataOrder = $this->orderFactory->create()->getResource()->getConnection()
                     ->describeTable($this->orderFactory->create()->getResource()->getMainTable());
-                $attrCollection = $this->getAttrCollectionFromDb($collectionData);
+                $attrCollectionOrder = $this->getAttrCollectionFromDb($collectionDataOrder);
+
+                $collectionDataItems = $this->itemResource->getConnection()
+                    ->describeTable($this->itemResource->getMainTable());
+                $attrCollectionItems = $this->getAttrCollectionFromDb($collectionDataItems);
+
+                $collectionDataAddress = $this->addressResource->getConnection()
+                    ->describeTable($this->addressResource->getMainTable());
+                $attrCollectionAddress = $this->getAttrCollectionFromDb($collectionDataAddress);
+
+                $attrCollection = [
+                    'item'                 => $attrCollectionOrder,
+                    'item.product'           => $attrCollectionItems,
+                    'item.shippingAddress' => $attrCollectionAddress,
+                    'item.billingAddress'  => $attrCollectionAddress
+                ];
+
                 break;
+        }
+
+        if (!is_array($attrCollection)) {
+            $attrCollection = ['item'=>$attrCollection];
         }
 
         return $attrCollection;
@@ -249,6 +282,7 @@ class Body extends Element implements RendererInterface
 
     /**
      * @param $collection
+     *
      * @return array
      */
     protected function getAttrCollectionFromDb($collection)
@@ -266,6 +300,7 @@ class Body extends Element implements RendererInterface
 
     /**
      * @param $collection
+     *
      * @return array
      */
     protected function getAttrCollectionFromEav($collection)

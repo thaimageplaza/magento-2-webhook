@@ -80,6 +80,7 @@ class Data extends CoreHelper
 
     /**
      * Data constructor.
+     *
      * @param Context $context
      * @param ObjectManagerInterface $objectManager
      * @param StoreManagerInterface $storeManager
@@ -100,8 +101,7 @@ class Data extends CoreHelper
         LiquidFilters $liquidFilters,
         HookFactory $hookFactory,
         HistoryFactory $historyFactory
-    )
-    {
+    ) {
         parent::__construct($context, $objectManager, $storeManager);
 
         $this->liquidFilters    = $liquidFilters;
@@ -116,6 +116,7 @@ class Data extends CoreHelper
      * @param $hook
      * @param bool $item
      * @param bool $log
+     *
      * @return array
      */
     public function sendHttpRequestFromHook($hook, $item = false, $log = false)
@@ -139,12 +140,10 @@ class Data extends CoreHelper
                 $hook->getQop(),
                 $hook->getNonceCount(),
                 $hook->getClientNonce(),
-                $hook->getOpaque());
+                $hook->getOpaque()
+            );
         }
-        $body        = $log ? $log->getBody() : $this->generateLiquidTemplate($item, $hook->getBody());
-        echo "<pre>";
-        var_dump($body);
-        echo "</pre>";die;
+        $body = $log ? $log->getBody() : $this->generateLiquidTemplate($item, $hook->getBody(), $hook->getHookType());
         $headers     = $hook->getHeaders();
         $contentType = $hook->getContentType();
 
@@ -154,9 +153,11 @@ class Data extends CoreHelper
     /**
      * @param $item
      * @param $templateHtml
+     * @param bool $hookType
+     *
      * @return string
      */
-    public function generateLiquidTemplate($item, $templateHtml)
+    public function generateLiquidTemplate($item, $templateHtml, $hookType = false)
     {
         try {
             $template       = new Template;
@@ -164,16 +165,41 @@ class Data extends CoreHelper
 
             $template->registerFilter($this->liquidFilters);
 
+            if ($hookType) {
+                $item = $this->getOrderData($item, $hookType);
+            }
+
             $template->parse($templateHtml, $filtersMethods);
             $content = $template->render([
                 'item' => $item,
             ]);
+
             return $content;
         } catch (Exception $e) {
             $this->_logger->critical($e->getMessage());
         }
 
         return '';
+    }
+
+    public function getOrderData($item, $hookType)
+    {
+        if ($hookType !== 'new_order') {
+            return $item;
+        }
+
+        if ($item->getShippingAddress()) {
+            $item->setData('shippingAddress', $item->getShippingAddress()->getData());
+        }
+        if ($item->getBillingAddress()) {
+            $item->setData('billingAddress', $item->getBillingAddress()->getData());
+        }
+
+        $item->setData('shippingStatus', $item->getShippingInclTax() > 0 ? 'true' : 'false');
+        $item->setData('paymentStatus', $item->getPayment()->getAmountOrdered() > 0 ? 'true' : 'false');
+        $item->setData('edit', !empty($item->getEditIncrement()) ? 'true' : 'false');
+
+        return $item;
     }
 
     /**
@@ -183,6 +209,7 @@ class Data extends CoreHelper
      * @param $url
      * @param $body
      * @param $method
+     *
      * @return array
      */
     public function sendHttpRequest($headers, $authentication, $contentType, $url, $body, $method)
@@ -247,10 +274,22 @@ class Data extends CoreHelper
      * @param $nonceCount
      * @param $clientNonce
      * @param $opaque
+     *
      * @return string
      */
-    public function getDigestAuthHeader($url, $method, $username, $realm, $password, $nonce, $algorithm, $qop, $nonceCount, $clientNonce, $opaque)
-    {
+    public function getDigestAuthHeader(
+        $url,
+        $method,
+        $username,
+        $realm,
+        $password,
+        $nonce,
+        $algorithm,
+        $qop,
+        $nonceCount,
+        $clientNonce,
+        $opaque
+    ) {
         $uri          = parse_url($url)[2];
         $method       = $method ?: 'GET';
         $A1           = md5("{$username}:{$realm}:{$password}");
@@ -264,6 +303,7 @@ class Data extends CoreHelper
     /**
      * @param $username
      * @param $password
+     *
      * @return string
      */
     public function getBasicAuthHeader($username, $password)
@@ -318,7 +358,8 @@ class Data extends CoreHelper
                 } else {
                     $history->setStatus(0)->setMessage($result['message']);
                     if ($isSendMail) {
-                        $this->sendMail($sendTo,
+                        $this->sendMail(
+                            $sendTo,
                             __('Something went wrong while sending %1 hook', $hook->getName()),
                             $this->getConfigGeneral('email_template'),
                             $this->storeManager->getStore()->getId()
@@ -328,10 +369,12 @@ class Data extends CoreHelper
                 $history->save();
             } catch (Exception $e) {
                 if ($isSendMail) {
-                    $this->sendMail($sendTo,
+                    $this->sendMail(
+                        $sendTo,
                         __('Something went wrong while sending %1 hook', $hook->getName()),
                         $this->getConfigGeneral('email_template'),
-                        $this->storeManager->getStore()->getId());
+                        $this->storeManager->getStore()->getId()
+                    );
                 }
             }
         }

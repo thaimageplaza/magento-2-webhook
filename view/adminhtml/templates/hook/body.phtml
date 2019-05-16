@@ -36,16 +36,16 @@ $fieldAttributes = $fieldId . ' class="' . $fieldClass . '" ' . $block->getUiId(
 $modifiersData   = $block->getModifier() ? \Mageplaza\Webhook\Helper\Data::jsonEncode($block->getModifier()) : '{}';
 ?>
 
-<?php if (!$element->getNoDisplay()): ?>
-    <?php if ($element->getType() == 'hidden'): ?>
+<?php if (!$element->getNoDisplay()) : ?>
+    <?php if ($element->getType() == 'hidden') : ?>
         <?= $element->getElementHtml() ?>
-    <?php else: ?>
+    <?php else : ?>
         <div<?= $fieldAttributes ?>>
-            <?php if ($elementBeforeLabel): ?>
+            <?php if ($elementBeforeLabel) : ?>
                 <?= $element->getElementHtml() ?>
                 <?= $element->getLabelHtml('', $element->getScopeLabel()) ?>
                 <?= $note ?>
-            <?php else: ?>
+            <?php else : ?>
                 <?= $element->getLabelHtml('', $element->getScopeLabel()) ?>
                 <div class="admin__field-control control">
                     <div id="grid_tab" class="ui-tabs ui-widget ui-widget-content ui-corner-all">
@@ -81,7 +81,8 @@ $modifiersData   = $block->getModifier() ? \Mageplaza\Webhook\Helper\Data::jsonE
                             <div id="grid_tab_preview_content" style="border-top: 1px solid #adadad;"
                                  aria-labelledby="grid_tab_body" class="ui-widget-content ui-corner-bottom"
                                  role="tabpanel" aria-expanded="true" aria-hidden="false">
-                                <textarea style="width: 100%" name="hook[preview]" title="preview" id="hook_preview"></textarea>
+                                <textarea style="width: 100%" name="hook[preview]" title="preview"
+                                          id="hook_preview"></textarea>
                             </div>
                         </div>
                     </div>
@@ -98,38 +99,44 @@ $modifiersData   = $block->getModifier() ? \Mageplaza\Webhook\Helper\Data::jsonE
     });
 </script>
 <div id="insert-variable-popup" class="admin__scope-old">
-    <?php $attrCollection = $block->getHookAttrCollection() ?: []; ?>
-    <div class="section-config">
-        <div class="entry-edit-head admin__collapsible-block">
-            <span id="ox_variable_item-link" class="entry-edit-head-link"></span>
-            <a id="ox_variable_item-head" href="#ox_variable_item-link"
-               onclick="Fieldset.toggleCollapse('ox_variable_item'); return false;"><?= __('Item Attribute') ?></a>
-        </div>
-        <input id="ox_variable_item-state" value="1" type="hidden">
+    <?php $attrCollections = $block->getHookAttrCollection() ?: []; ?>
+    <?php $attvalue = 1; ?>
+    <?php foreach ($attrCollections as $key => $attrCollection) : ?>
+        <?php $oxClass = str_replace('.', '_', $key); ?>
+        <div class="section-config">
+            <div class="entry-edit-head admin__collapsible-block">
+                <span id="ox_variable_<?=$oxClass?>-link" class="entry-edit-head-link"></span>
+                <a id="ox_variable_<?=$oxClass?>-head" href="#ox_variable_<?=$oxClass?>-link"
+                   onclick="Fieldset.toggleCollapse('ox_variable_<?=$oxClass?>'); return false;"><?= __('%1 Attribute',
+                        $key) ?></a>
+            </div>
+            <input id="ox_variable_<?=$oxClass?>-state" value="<?= $attvalue ?>" type="hidden">
 
-        <fieldset class="config admin__collapsible-block admin__scope-old" id="ox_variable_item">
-            <?php foreach ($attrCollection as $attr) : ?>
-                <?php /** @var \Magento\Eav\Model\Entity\Attribute $attr */ ?>
-                <div class="attr-code" id="<?= $attr->getName() ?>" code="<?= $attr->getName() ?>">
-                    <div class="row">
-                        <label class="attr-code-label"><?= $attr->getTitle() . " ({$attr->getName()})"; ?></label>
-                        <button class="insert"><?= __('Add') ?></button>
-                        <button class="add-modifier"><?= __('Add Filter') ?></button>
-                        <label class="liquid-variable">{{ <?= 'item.' . $attr->getName() ?> }}</label>
+            <fieldset class="config admin__collapsible-block admin__scope-old" id="ox_variable_<?=$oxClass?>">
+                <?php foreach ($attrCollection as $attr) : ?>
+                    <?php /** @var \Magento\Eav\Model\Entity\Attribute $attr */ ?>
+                    <div class="attr-code" id="<?= $attr->getName() ?>" code="<?= $attr->getName() ?>">
+                        <div class="row">
+                            <label class="attr-code-label"><?= $attr->getTitle() . " ({$attr->getName()})"; ?></label>
+                            <button class="insert"><?= __('Add') ?></button>
+                            <button class="add-modifier"><?= __('Add Filter') ?></button>
+                            <label class="liquid-variable">{{ <?= $key . '.' . $attr->getName() ?> }}</label>
+                        </div>
+                        <div class="row-modifier data-table">
+                            <div class="modifier-group" code="<?= $attr->getName() ?>"></div>
+                        </div>
                     </div>
-                    <div class="row-modifier data-table">
-                        <div class="modifier-group" code="<?= $attr->getName() ?>"></div>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-        </fieldset>
-    </div>
-    <script type="text/javascript">//<![CDATA[
-        require(['prototype'], function () {
-            Fieldset.applyCollapse('ox_variable_item');
-        });
-        //]]>
-    </script>
+                <?php endforeach; ?>
+            </fieldset>
+        </div>
+        <?php $attvalue++; ?>
+        <script type="text/javascript">//<![CDATA[
+            require(['prototype'], function () {
+                Fieldset.applyCollapse('ox_variable_<?=$oxClass?>');
+            });
+            //]]>
+        </script>
+    <?php endforeach; ?>
 </div>
 <script type="text/x-magento-init">
     {
@@ -139,4 +146,5 @@ $modifiersData   = $block->getModifier() ? \Mageplaza\Webhook\Helper\Data::jsonE
             }
         }
     }
+
 </script>
