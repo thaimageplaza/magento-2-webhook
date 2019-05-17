@@ -216,14 +216,50 @@ class Body extends Element implements RendererInterface
                 $attrCollection = $this->getAttrCollectionFromDb($collectionData);
                 break;
             case HookType::NEW_INVOICE:
-                $collectionData = $this->invoiceResource->getConnection()
+                $collectionDataInvoice = $this->invoiceResource->getConnection()
                     ->describeTable($this->invoiceResource->getMainTable());
-                $attrCollection = $this->getAttrCollectionFromDb($collectionData);
+                $attrCollectionInvoice = $this->getAttrCollectionFromDb($collectionDataInvoice);
+                $collectionDataOrder = $this->orderFactory->create()->getResource()->getConnection()
+                    ->describeTable($this->orderFactory->create()->getResource()->getMainTable());
+                $attrCollectionOrder = $this->getAttrCollectionFromDb($collectionDataOrder);
+
+                $collectionDataItems = $this->itemResource->getConnection()
+                    ->describeTable($this->itemResource->getMainTable());
+                $attrCollectionItems = $this->getAttrCollectionFromDb($collectionDataItems);
+
+                $collectionDataAddress = $this->addressResource->getConnection()
+                    ->describeTable($this->addressResource->getMainTable());
+                $attrCollectionAddress = $this->getAttrCollectionFromDb($collectionDataAddress);
+                $attrCollection = [
+                    'item'                       => $attrCollectionInvoice,
+                    'item.order'                 => $attrCollectionOrder,
+                    'item.order.product'         => $attrCollectionItems,
+                    'item.order.shippingAddress' => $attrCollectionAddress,
+                    'item.order.billingAddress'  => $attrCollectionAddress
+                ];
                 break;
             case HookType::NEW_SHIPMENT:
-                $collectionData = $this->shipmentResource->getConnection()
+                $collectionDataShipment = $this->shipmentResource->getConnection()
                     ->describeTable($this->shipmentResource->getMainTable());
-                $attrCollection = $this->getAttrCollectionFromDb($collectionData);
+                $attrCollectionShipment = $this->getAttrCollectionFromDb($collectionDataShipment);
+                $collectionDataOrder = $this->orderFactory->create()->getResource()->getConnection()
+                    ->describeTable($this->orderFactory->create()->getResource()->getMainTable());
+                $attrCollectionOrder = $this->getAttrCollectionFromDb($collectionDataOrder);
+
+                $collectionDataItems = $this->itemResource->getConnection()
+                    ->describeTable($this->itemResource->getMainTable());
+                $attrCollectionItems = $this->getAttrCollectionFromDb($collectionDataItems);
+
+                $collectionDataAddress = $this->addressResource->getConnection()
+                    ->describeTable($this->addressResource->getMainTable());
+                $attrCollectionAddress = $this->getAttrCollectionFromDb($collectionDataAddress);
+                $attrCollection = [
+                    'item'                       => $attrCollectionShipment,
+                    'item.order'                 => $attrCollectionOrder,
+                    'item.order.product'         => $attrCollectionItems,
+                    'item.order.shippingAddress' => $attrCollectionAddress,
+                    'item.order.billingAddress'  => $attrCollectionAddress
+                ];
                 break;
             case HookType::NEW_CREDITMEMO:
                 $collectionData = $this->creditmemoResource->getConnection()
@@ -278,7 +314,7 @@ class Body extends Element implements RendererInterface
                 break;
         }
 
-        if (!is_array($attrCollection)) {
+        if (!array_key_exists('item', $attrCollection)) {
             $attrCollection = ['item' => $attrCollection];
         }
 

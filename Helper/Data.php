@@ -35,9 +35,11 @@ use Magento\Store\Model\StoreManagerInterface;
 use Mageplaza\Core\Helper\AbstractData as CoreHelper;
 use Mageplaza\Webhook\Block\Adminhtml\LiquidFilters;
 use Mageplaza\Webhook\Model\Config\Source\Authentication;
+use Mageplaza\Webhook\Model\Config\Source\HookType;
 use Mageplaza\Webhook\Model\HistoryFactory;
 use Mageplaza\Webhook\Model\Hook;
 use Mageplaza\Webhook\Model\HookFactory;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Zend_Http_Response;
 
 /**
@@ -78,6 +80,8 @@ class Data extends CoreHelper
      */
     protected $backendUrl;
 
+    protected $orderRepository;
+
     /**
      * Data constructor.
      *
@@ -90,6 +94,7 @@ class Data extends CoreHelper
      * @param LiquidFilters $liquidFilters
      * @param HookFactory $hookFactory
      * @param HistoryFactory $historyFactory
+     * @param OrderRepositoryInterface $orderRepository
      */
     public function __construct(
         Context $context,
@@ -100,7 +105,8 @@ class Data extends CoreHelper
         CurlFactory $curlFactory,
         LiquidFilters $liquidFilters,
         HookFactory $hookFactory,
-        HistoryFactory $historyFactory
+        HistoryFactory $historyFactory,
+        OrderRepositoryInterface $orderRepository
     ) {
         parent::__construct($context, $objectManager, $storeManager);
 
@@ -110,6 +116,7 @@ class Data extends CoreHelper
         $this->historyFactory   = $historyFactory;
         $this->transportBuilder = $transportBuilder;
         $this->backendUrl       = $backendUrl;
+        $this->orderRepository  = $orderRepository;
     }
 
     /**
@@ -143,7 +150,9 @@ class Data extends CoreHelper
                 $hook->getOpaque()
             );
         }
-        $body = $log ? $log->getBody() : $this->generateLiquidTemplate($item, $hook->getBody(), $hook->getHookType());
+        $body        = $log ?
+            $log->getBody() :
+            $this->generateLiquidTemplate($item, $hook->getBody(), $hook->getHookType());
         $headers     = $hook->getHeaders();
         $contentType = $hook->getContentType();
 
@@ -184,20 +193,37 @@ class Data extends CoreHelper
 
     public function getOrderData($item, $hookType)
     {
-        if ($hookType !== 'new_order') {
-            return $item;
-        }
+        switch ($hookType) {
+            case HookType::NEW_ORDER:
+            case HookType::UPDATE_ORDER:
+            case HookType::CANCEL_ORDER:
+                if ($item->getShippingAddress()) {
+                    $item->setData('shippingAddress', $item->getShippingAddress()->getData());
+                }
+                if ($item->getBillingAddress()) {
+                    $item->setData('billingAddress', $item->getBillingAddress()->getData());
+                }
 
-        if ($item->getShippingAddress()) {
-            $item->setData('shippingAddress', $item->getShippingAddress()->getData());
-        }
-        if ($item->getBillingAddress()) {
-            $item->setData('billingAddress', $item->getBillingAddress()->getData());
-        }
+                $item->setData('shippingStatus', $item->getShippingInclTax() > 0 ? 'true' : 'false');
+                $item->setData('paymentStatus', $item->getPayment()->getAmountOrdered() > 0 ? 'true' : 'false');
+                $item->setData('edit', !empty($item->getEditIncrement()) ? 'true' : 'false');
+                break;
+            case HookType::NEW_SHIPMENT:
+            case HookType::NEW_INVOICE:
+                $order = $this->orderRepository->get($item->getOrderId());
+                if ($order->getShippingAddress()) {
+                    $order->setData('shippingAddress', $order->getShippingAddress()->getData());
+                }
+                if ($item->getBillingAddress()) {
+                    $order->setData('billingAddress', $order->getBillingAddress()->getData());
+                }
 
-        $item->setData('shippingStatus', $item->getShippingInclTax() > 0 ? 'true' : 'false');
-        $item->setData('paymentStatus', $item->getPayment()->getAmountOrdered() > 0 ? 'true' : 'false');
-        $item->setData('edit', !empty($item->getEditIncrement()) ? 'true' : 'false');
+                $order->setData('shippingStatus', $order->getShippingInclTax() > 0 ? 'true' : 'false');
+                $order->setData('paymentStatus', $order->getPayment()->getAmountOrdered() > 0 ? 'true' : 'false');
+                $order->setData('edit', 'true');
+                $item->setData('order', $order->getData());
+                break;
+        }
 
         return $item;
     }
