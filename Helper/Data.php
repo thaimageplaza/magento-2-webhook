@@ -41,6 +41,7 @@ use Mageplaza\Webhook\Model\Hook;
 use Mageplaza\Webhook\Model\HookFactory;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Zend_Http_Response;
+use Magento\Catalog\Api\ProductRepositoryInterface;
 
 /**
  * Class Data
@@ -80,7 +81,15 @@ class Data extends CoreHelper
      */
     protected $backendUrl;
 
+    /**
+     * @var OrderRepositoryInterface
+     */
     protected $orderRepository;
+
+    /**
+     * @var ProductRepositoryInterface
+     */
+    protected $productRepository;
 
     /**
      * Data constructor.
@@ -106,17 +115,19 @@ class Data extends CoreHelper
         LiquidFilters $liquidFilters,
         HookFactory $hookFactory,
         HistoryFactory $historyFactory,
-        OrderRepositoryInterface $orderRepository
+        OrderRepositoryInterface $orderRepository,
+        ProductRepositoryInterface $productRepository
     ) {
         parent::__construct($context, $objectManager, $storeManager);
 
-        $this->liquidFilters    = $liquidFilters;
-        $this->curlFactory      = $curlFactory;
-        $this->hookFactory      = $hookFactory;
-        $this->historyFactory   = $historyFactory;
-        $this->transportBuilder = $transportBuilder;
-        $this->backendUrl       = $backendUrl;
-        $this->orderRepository  = $orderRepository;
+        $this->liquidFilters     = $liquidFilters;
+        $this->curlFactory       = $curlFactory;
+        $this->hookFactory       = $hookFactory;
+        $this->historyFactory    = $historyFactory;
+        $this->transportBuilder  = $transportBuilder;
+        $this->backendUrl        = $backendUrl;
+        $this->orderRepository   = $orderRepository;
+        $this->productRepository = $productRepository;
     }
 
     /**
@@ -191,41 +202,62 @@ class Data extends CoreHelper
         return '';
     }
 
+    /**
+     * @param $item
+     * @param $hookType
+     *
+     * @return mixed
+     * @throws NoSuchEntityException
+     */
     public function getOrderData($item, $hookType)
     {
         switch ($hookType) {
             case HookType::NEW_ORDER:
             case HookType::UPDATE_ORDER:
             case HookType::CANCEL_ORDER:
-                if ($item->getShippingAddress()) {
-                    $item->setData('shippingAddress', $item->getShippingAddress()->getData());
-                }
-                if ($item->getBillingAddress()) {
-                    $item->setData('billingAddress', $item->getBillingAddress()->getData());
-                }
-
-                $item->setData('shippingStatus', $item->getShippingInclTax() > 0 ? 'true' : 'false');
-                $item->setData('paymentStatus', $item->getPayment()->getAmountOrdered() > 0 ? 'true' : 'false');
-                $item->setData('edit', !empty($item->getEditIncrement()) ? 'true' : 'false');
-                break;
+                return $this->getMpOrder($item);
             case HookType::NEW_SHIPMENT:
             case HookType::NEW_INVOICE:
                 $order = $this->orderRepository->get($item->getOrderId());
-                if ($order->getShippingAddress()) {
-                    $order->setData('shippingAddress', $order->getShippingAddress()->getData());
-                }
-                if ($item->getBillingAddress()) {
-                    $order->setData('billingAddress', $order->getBillingAddress()->getData());
-                }
+                $item->setData('order', $this->getMpOrder($order));
 
-                $order->setData('shippingStatus', $order->getShippingInclTax() > 0 ? 'true' : 'false');
-                $order->setData('paymentStatus', $order->getPayment()->getAmountOrdered() > 0 ? 'true' : 'false');
-                $order->setData('edit', 'true');
-                $item->setData('order', $order->getData());
-                break;
+                return $item;
         }
 
         return $item;
+    }
+
+    /**
+     * @param \Magento\Sales\Model\Order $order
+     *
+     * @return mixed
+     * @throws NoSuchEntityException
+     */
+    public function getMpOrder($order)
+    {
+        foreach ($order->getItems() as &$product) {
+            $productRepo = $this->productRepository->getById($product->getProductId());
+            $product->setGiftWrapping($productRepo->getData('tax_class_id') == '5' ? 'true' : 'false');
+        }
+        unset($product);
+        if ($order->getShippingAddress()) {
+            $order->getShippingAddress()->setData('street1', $order->getShippingAddress()->getStreet()[0]);
+            $order->getShippingAddress()->setData('street2', $order->getShippingAddress()->getStreet()[1]);
+            $order->getShippingAddress()->setData('street3', $order->getShippingAddress()->getStreet()[2]);
+            $order->setData('shippingAddress', $order->getShippingAddress()->getData());
+        }
+        if ($order->getBillingAddress()) {
+            $order->getBillingAddress()->setData('street1', $order->getBillingAddress()->getStreet()[0]);
+            $order->getBillingAddress()->setData('street2', $order->getBillingAddress()->getStreet()[1]);
+            $order->getBillingAddress()->setData('street3', $order->getBillingAddress()->getStreet()[2]);
+            $order->setData('billingAddress', $order->getBillingAddress()->getData());
+        }
+
+        $order->setData('shippingStatus', $order->getShippingInclTax() > 0 ? 'true' : 'false');
+        $order->setData('paymentStatus', $order->getPayment()->getAmountOrdered() > 0 ? 'true' : 'false');
+        $order->setData('edit', !empty($order->getEditIncrement()) ? 'true' : 'false');
+
+        return $order;
     }
 
     /**
